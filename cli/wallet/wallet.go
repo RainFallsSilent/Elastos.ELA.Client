@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/elastos/Elastos.ELA.Client/wallet"
 	"github.com/elastos/Elastos.ELA.Client/log"
+	"github.com/elastos/Elastos.ELA.Client/wallet"
 
-	"github.com/urfave/cli"
 	"github.com/elastos/Elastos.ELA.Utility/common"
+	"github.com/urfave/cli"
 )
 
 const (
@@ -226,6 +226,14 @@ func walletAction(context *cli.Context) {
 		fmt.Println("wallet data store was reset successfully")
 		return
 	}
+
+	//calculate genesis address
+	if param := context.String("genesis"); param != "" {
+		if err := CalculateGenesisAddress(context); err != nil {
+			fmt.Println("error:", err)
+			os.Exit(704)
+		}
+	}
 }
 
 func NewCommand() *cli.Command {
@@ -336,6 +344,10 @@ func NewCommand() *cli.Command {
 			cli.StringFlag{
 				Name:  "withdraw",
 				Usage: "create withdraw transaction",
+			},
+			cli.StringFlag{
+				Name:  "genesis, g",
+				Usage: "calculate genesis address from genesisblock hash",
 			},
 		},
 		Action: walletAction,
