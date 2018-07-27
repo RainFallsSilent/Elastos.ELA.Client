@@ -75,19 +75,34 @@ func createTransaction(c *cli.Context, wallet walt.Wallet) error {
 	} else if standard != "" {
 		to = standard
 		lockStr := c.String("lock")
+		tokenFeeAddr := c.String("feeaddr")
 		if lockStr == "" {
-			txn, err = wallet.CreateTransaction(from, to, amount, fee)
-			if err != nil {
-				return errors.New("create transaction failed: " + err.Error())
+			if tokenFeeAddr == "" {
+				txn, err = wallet.CreateTransaction(from, to, amount, fee)
+				if err != nil {
+					return errors.New("create transaction failed: " + err.Error())
+				}
+			} else {
+				txn, err = wallet.CreateTokenTransaction(from, tokenFeeAddr, to, amount, fee)
+				if err != nil {
+					return errors.New("create token transaction failed: " + err.Error())
+				}
 			}
 		} else {
 			lock, err := strconv.ParseUint(lockStr, 10, 32)
 			if err != nil {
 				return errors.New("invalid lock height")
 			}
-			txn, err = wallet.CreateLockedTransaction(from, to, amount, fee, uint32(lock))
-			if err != nil {
-				return errors.New("create transaction failed: " + err.Error())
+			if tokenFeeAddr == "" {
+				txn, err = wallet.CreateLockedTransaction(from, to, amount, fee, uint32(lock))
+				if err != nil {
+					return errors.New("create locked transaction failed: " + err.Error())
+				}
+			} else {
+				txn, err = wallet.CreateLockedTokenTransaction(from, tokenFeeAddr, to, amount, fee, uint32(lock))
+				if err != nil {
+					return errors.New("create locked token transaction failed: " + err.Error())
+				}
 			}
 		}
 	} else {
@@ -166,6 +181,10 @@ func signTransaction(name string, password []byte, context *cli.Context, wallet 
 		return errors.New("deserialize transaction failed")
 	}
 
+	if len(txn.Programs) != 1 {
+		return errors.New("invalid transaction")
+	}
+
 	program := txn.Programs[0]
 
 	haveSign, needSign, err := crypto.GetSignStatus(program.Code, program.Parameter)
@@ -179,6 +198,58 @@ func signTransaction(name string, password []byte, context *cli.Context, wallet 
 	}
 
 	_, err = wallet.Sign(name, password, &txn)
+	if err != nil {
+		return err
+	}
+
+	haveSign, needSign, _ = crypto.GetSignStatus(program.Code, program.Parameter)
+	fmt.Println("[", haveSign, "/", needSign, "] Transaction successfully signed")
+
+	output(haveSign, needSign, &txn)
+
+	return nil
+}
+
+func signTokenTransaction(elaKeystore string, elaPassword []byte, tokenKeystore string, tokenPassword []byte, context *cli.Context, wallet walt.Wallet) error {
+	defer ClearBytes(elaPassword)
+	defer ClearBytes(tokenPassword)
+
+	content, err := getTransactionContent(context)
+	if err != nil {
+		return err
+	}
+	rawData, err := HexStringToBytes(content)
+	if err != nil {
+		return errors.New("decode transaction content failed")
+	}
+
+	var txn Transaction
+	err = txn.Deserialize(bytes.NewReader(rawData))
+	if err != nil {
+		return errors.New("deserialize transaction failed")
+	}
+
+	if len(txn.Programs) != 1 {
+		return errors.New("invalid transaction")
+	}
+
+	program := txn.Programs[0]
+
+	haveSign, needSign, err := crypto.GetSignStatus(program.Code, program.Parameter)
+	if haveSign == needSign {
+		return errors.New("transaction was fully signed, no need more sign")
+	}
+
+	elaPassword, err = GetPassword(elaPassword, false)
+	if err != nil {
+		return err
+	}
+	tokenPassword, err = GetPassword(tokenPassword, false)
+	if err != nil {
+		return err
+	}
+
+	_, err = wallet.SignTokenTransaction(elaKeystore, elaPassword, tokenKeystore, tokenPassword, &txn)
 	if err != nil {
 		return err
 	}

@@ -19,7 +19,7 @@ const (
 	MinMultiSignKeys = 3
 )
 
-func importKeystore(name string, password []byte, privateKey string) error {
+func importKeystore(name string, password []byte, privateKey string, redeemScriptType byte) error {
 	var err error
 	password, err = GetPassword(password, true)
 	if err != nil {
@@ -31,7 +31,7 @@ func importKeystore(name string, password []byte, privateKey string) error {
 		return err
 	}
 
-	err = wallet.ImportKeystore(name, password, key)
+	err = wallet.ImportKeystore(name, password, key, redeemScriptType)
 	if err != nil {
 		return err
 	}
@@ -152,10 +152,13 @@ func walletAction(context *cli.Context) {
 		os.Exit(0)
 	}
 	name := context.String("name")
+	tokenKeystore := context.String("tokenkeystore")
 	pass := context.String("password")
+	tokenPass := context.String("tokenpassword")
 
 	// import wallet from an exited private key
 	if privateKey := context.String("import"); len(privateKey) > 0 {
+
 		if err := importKeystore(name, []byte(pass), privateKey); err != nil {
 			fmt.Println("error: import keystore failed,", err)
 			cli.ShowCommandHelpAndExit(context, "import", -1)
@@ -242,6 +245,11 @@ func walletAction(context *cli.Context) {
 			}
 		case "sign":
 			if err := signTransaction(name, []byte(pass), context, wallet); err != nil {
+				fmt.Println("error:", err)
+				os.Exit(702)
+			}
+		case "signtoken":
+			if err := signTokenTransaction(name, []byte(pass), tokenKeystore, []byte(tokenPass), context, wallet); err != nil {
 				fmt.Println("error:", err)
 				os.Exit(702)
 			}
@@ -345,6 +353,10 @@ func NewCommand() *cli.Command {
 			},
 			cli.StringFlag{
 				Name:  "from",
+				Usage: "the spend address of the transaction",
+			},
+			cli.StringFlag{
+				Name:  "feeaddr",
 				Usage: "the spend address of the transaction",
 			},
 			cli.StringFlag{

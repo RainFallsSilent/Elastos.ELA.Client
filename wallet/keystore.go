@@ -7,10 +7,10 @@ import (
 	"errors"
 	"sync"
 
+	"crypto/elliptic"
 	. "github.com/elastos/Elastos.ELA.Utility/common"
 	"github.com/elastos/Elastos.ELA.Utility/crypto"
 	. "github.com/elastos/Elastos.ELA/core"
-	"crypto/elliptic"
 )
 
 const (
@@ -41,7 +41,7 @@ type KeystoreImpl struct {
 	address      string
 }
 
-func ImportKeystore(name string, password []byte, privateKey []byte) error {
+func ImportKeystore(name string, password []byte, privateKey []byte, redeemScriptType byte) error {
 	keystoreFile, err := CreateKeystoreFile(name)
 	if err != nil {
 		return err
@@ -81,7 +81,7 @@ func ImportKeystore(name string, password []byte, privateKey []byte) error {
 	keystoreFile.SetPrivateKeyEncrypted(privateKeyEncrypted)
 
 	// Init keystore parameters
-	keystore.init(privateKey, publicKey)
+	keystore.init(privateKey, publicKey, redeemScriptType)
 
 	err = keystoreFile.SaveToFile()
 	if err != nil {
@@ -192,7 +192,7 @@ func GenerateKey(len uint16) []byte {
 	return key
 }
 
-func (store *KeystoreImpl) init(privateKey []byte, publicKey *crypto.PublicKey) error {
+func (store *KeystoreImpl) init(privateKey []byte, publicKey *crypto.PublicKey, redeemScriptType byte) error {
 	// Set private key
 	store.privateKey = privateKey
 
@@ -201,9 +201,16 @@ func (store *KeystoreImpl) init(privateKey []byte, publicKey *crypto.PublicKey) 
 
 	var err error
 	// Set redeem script
-	store.redeemScript, err = crypto.CreateStandardRedeemScript(publicKey)
-	if err != nil {
-		return err
+	if redeemScriptType == STANDARD {
+		store.redeemScript, err = crypto.CreateStandardRedeemScript(publicKey)
+		if err != nil {
+			return err
+		}
+	} else if redeemScriptType == TOKEN {
+		store.redeemScript, err = crypto.CreateTokenRedeemScript(publicKey)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Set program hash
