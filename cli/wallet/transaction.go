@@ -163,7 +163,7 @@ func signTransaction(name string, password []byte, context *cli.Context, wallet 
 	var txn Transaction
 	err = txn.Deserialize(bytes.NewReader(rawData))
 	if err != nil {
-		return errors.New("deserialize transaction failed")
+		return errors.New("deserialize transaction failed," + err.Error())
 	}
 
 	program := txn.Programs[0]
