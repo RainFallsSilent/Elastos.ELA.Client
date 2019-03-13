@@ -10,9 +10,13 @@ import (
 
 	"github.com/elastos/Elastos.ELA.Client/log"
 
-	. "github.com/elastos/Elastos.ELA.Utility/common"
-	"github.com/elastos/Elastos.ELA.Utility/crypto"
-	. "github.com/elastos/Elastos.ELA/core"
+	"github.com/elastos/Elastos.ELA/account"
+	. "github.com/elastos/Elastos.ELA/common"
+	"github.com/elastos/Elastos.ELA/core/contract"
+	"github.com/elastos/Elastos.ELA/core/contract/program"
+	. "github.com/elastos/Elastos.ELA/core/types"
+	"github.com/elastos/Elastos.ELA/core/types/payload"
+	"github.com/elastos/Elastos.ELA/crypto"
 )
 
 const (
@@ -101,15 +105,12 @@ func (wallet *WalletImpl) Open(name string, password []byte) error {
 }
 
 func (wallet *WalletImpl) AddStandardAccount(publicKey *crypto.PublicKey) (*Uint168, error) {
-	redeemScript, err := crypto.CreateStandardRedeemScript(publicKey)
+	redeemScript, err := contract.CreateStandardRedeemScript(publicKey)
 	if err != nil {
 		return nil, errors.New("[Wallet], CreateStandardRedeemScript failed")
 	}
 
-	programHash, err := crypto.ToProgramHash(redeemScript)
-	if err != nil {
-		return nil, errors.New("[Wallet], CreateStandardAddress failed")
-	}
+	programHash := ToProgramHash(byte(contract.PrefixStandard), redeemScript)
 
 	err = wallet.AddAddress(programHash, redeemScript, TypeStand)
 	if err != nil {
@@ -120,15 +121,12 @@ func (wallet *WalletImpl) AddStandardAccount(publicKey *crypto.PublicKey) (*Uint
 }
 
 func (wallet *WalletImpl) AddMultiSignAccount(M uint, publicKeys ...*crypto.PublicKey) (*Uint168, error) {
-	redeemScript, err := crypto.CreateMultiSignRedeemScript(M, publicKeys)
+	redeemScript, err := contract.CreateMultiSigRedeemScript(int(M), publicKeys)
 	if err != nil {
 		return nil, errors.New("[Wallet], CreateStandardRedeemScript failed")
 	}
 
-	programHash, err := crypto.ToProgramHash(redeemScript)
-	if err != nil {
-		return nil, errors.New("[Wallet], CreateMultiSignAddress failed")
-	}
+	programHash := ToProgramHash(byte(contract.PrefixMultiSig), redeemScript)
 
 	err = wallet.AddAddress(programHash, redeemScript, TypeMulti)
 	if err != nil {
@@ -257,7 +255,7 @@ func (wallet *WalletImpl) createCrossChainTransaction(fromAddress string, fee *F
 	totalOutputAmount += *fee          // Add transaction fee
 	perAccountFee := *fee / Fixed64(len(outputs))
 
-	txPayload := &PayloadTransferCrossChainAsset{}
+	txPayload := &payload.TransferCrossChainAsset{}
 	for index, output := range outputs {
 		var receiver *Uint168
 		if output.Address == DESTROY_ADDRESS {
@@ -367,7 +365,8 @@ func (wallet *WalletImpl) Sign(name string, password []byte, txn *Transaction) (
 func (wallet *WalletImpl) signStandardTransaction(txn *Transaction) (*Transaction, error) {
 	code := txn.Programs[0].Code
 	// Get signer
-	programHash, err := crypto.GetSigner(code)
+	publickey := code[1 : len(code)-1]
+	programHash, err := contract.PublicKeyToStandardProgramHash(publickey)
 	// Check if current user is a valid signer
 	if *programHash != *wallet.Keystore.GetProgramHash() {
 		return nil, errors.New("[Wallet], Invalid signer")
@@ -392,13 +391,13 @@ func (wallet *WalletImpl) signMultiSignTransaction(txn *Transaction) (*Transacti
 	param := txn.Programs[0].Parameter
 	// Check if current user is a valid signer
 	var signerIndex = -1
-	programHashes, err := crypto.GetSigners(code)
+	programHashes, err := account.GetSigners(code)
 	if err != nil {
 		return nil, err
 	}
-	userProgramHash := wallet.Keystore.GetProgramHash()
+	userProgramHash := wallet.Keystore.GetProgramHash().ToCodeHash()
 	for i, programHash := range programHashes {
-		if *userProgramHash == *programHash {
+		if userProgramHash == *programHash {
 			signerIndex = i
 			break
 		}
@@ -430,8 +429,8 @@ func getSystemAssetId() Uint256 {
 	systemToken := &Transaction{
 		TxType:         RegisterAsset,
 		PayloadVersion: 0,
-		Payload: &PayloadRegisterAsset{
-			Asset: Asset{
+		Payload: &payload.RegisterAsset{
+			Asset: payload.Asset{
 				Name:      "ELA",
 				Precision: 0x08,
 				AssetType: 0x00,
@@ -442,7 +441,7 @@ func getSystemAssetId() Uint256 {
 		Attributes: []*Attribute{},
 		Inputs:     []*Input{},
 		Outputs:    []*Output{},
-		Programs:   []*Program{},
+		Programs:   []*program.Program{},
 	}
 	return systemToken.Hash()
 }
@@ -462,15 +461,15 @@ func (wallet *WalletImpl) removeLockedUTXOs(utxos []*UTXO) []*UTXO {
 	return availableUTXOs
 }
 
-func (wallet *WalletImpl) newTransaction(redeemScript []byte, inputs []*Input, outputs []*Output, txType TransactionType) *Transaction {
+func (wallet *WalletImpl) newTransaction(redeemScript []byte, inputs []*Input, outputs []*Output, txType TxType) *Transaction {
 	// Create payload
-	txPayload := &PayloadTransferAsset{}
+	txPayload := &payload.TransferAsset{}
 	// Create attributes
 	txAttr := NewAttribute(Nonce, []byte(strconv.FormatInt(rand.Int63(), 10)))
 	attributes := make([]*Attribute, 0)
 	attributes = append(attributes, &txAttr)
 	// Create program
-	var program = &Program{redeemScript, nil}
+	var p = &program.Program{redeemScript, nil}
 	// Create transaction
 	return &Transaction{
 		TxType:     txType,
@@ -478,7 +477,7 @@ func (wallet *WalletImpl) newTransaction(redeemScript []byte, inputs []*Input, o
 		Attributes: attributes,
 		Inputs:     inputs,
 		Outputs:    outputs,
-		Programs:   []*Program{program},
+		Programs:   []*program.Program{p},
 		LockTime:   0,
 	}
 }

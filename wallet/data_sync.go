@@ -8,8 +8,8 @@ import (
 	. "github.com/elastos/Elastos.ELA.Client/rpc"
 
 	"github.com/cheggaaa/pb"
-	. "github.com/elastos/Elastos.ELA.Utility/common"
-	. "github.com/elastos/Elastos.ELA/core"
+	. "github.com/elastos/Elastos.ELA/common"
+	. "github.com/elastos/Elastos.ELA/core/types"
 )
 
 type DataSync interface {

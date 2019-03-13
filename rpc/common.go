@@ -1,7 +1,8 @@
 package rpc
 
 import (
-	. "github.com/elastos/Elastos.ELA/core"
+	. "github.com/elastos/Elastos.ELA/core/types"
+	"github.com/elastos/Elastos.ELA/core/types/payload"
 )
 
 const TlsPort = 443
@@ -43,7 +44,7 @@ type TransactionInfo struct {
 	Confirmations  uint32          `json:"confirmations"`
 	Time           uint32          `json:"time"`
 	BlockTime      uint32          `json:"blocktime"`
-	TxType         TransactionType `json:"type"`
+	TxType         TxType          `json:"type"`
 	PayloadVersion byte            `json:"payloadversion"`
 	Payload        PayloadInfo     `json:"payload"`
 	Attributes     []AttributeInfo `json:"attributes"`
@@ -97,7 +98,7 @@ type CoinbaseInfo struct {
 }
 
 type RegisterAssetInfo struct {
-	Asset      Asset
+	Asset      payload.Asset
 	Amount     string
 	Controller string
 }

@@ -10,7 +10,7 @@ import (
 
 	"github.com/elastos/Elastos.ELA.Client/config"
 
-	"github.com/elastos/Elastos.ELA.Utility/common"
+	"github.com/elastos/Elastos.ELA/common"
 )
 
 type Response struct {
@@ -33,7 +33,7 @@ func GetChainHeight() (uint32, error) {
 	if err != nil {
 		return 0, err
 	}
-	return uint32(result.(float64))-1, nil
+	return uint32(result.(float64)) - 1, nil
 }
 
 func GetBlockHash(height uint32) (*common.Uint256, error) {

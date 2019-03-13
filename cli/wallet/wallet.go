@@ -10,7 +10,8 @@ import (
 	"github.com/elastos/Elastos.ELA.Client/log"
 	"github.com/elastos/Elastos.ELA.Client/wallet"
 
-	"github.com/elastos/Elastos.ELA.Utility/common"
+	"github.com/elastos/Elastos.ELA/common"
+	"github.com/elastos/Elastos.ELA/core/contract"
 	"github.com/urfave/cli"
 	"golang.org/x/crypto/ripemd160"
 )
@@ -132,7 +133,7 @@ func calculateGenesisAddress(genesisBlockHash string) error {
 		return md160.Sum([]byte{prefix})
 	}
 
-	genesisProgramHash, err := common.Uint168FromBytes(sum168(common.PrefixCrossChain, buf.Bytes()))
+	genesisProgramHash, err := common.Uint168FromBytes(sum168(byte(contract.PrefixCrossChain), buf.Bytes()))
 	if err != nil {
 		return errors.New("genesis block bytes to program hash failed")
 	}
